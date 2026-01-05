@@ -1,34 +1,29 @@
 import Attendance from "../models/Attendance.js";
 import Course from "../models/Course.js";
+import Lecturer from "../models/Lecturer.js";
 import { Parser } from "json2csv";
-
 
 export const markAttendance = async (req, res) => {
   try {
     const { courseId, records } = req.body;
-    const lecturerId = req.user.lecturerId;
 
-    const course = await Course.findOne({
-      _id: courseId,
-      lecturer: lecturerId,
-    });
+    const course = await Course.findById(courseId);
+    if (!course) {
+      return res.status(404).json({ message: "Course not found" });
+    }
 
-    if (!course)
+    const lecturer = await Lecturer.findOne({ user: req.user._id });
+
+    if (!lecturer) {
+      return res.status(403).json({ message: "Lecturer profile not found" });
+    }
+
+    if (course.lecturer.toString() !== lecturer._id.toString()) {
       return res.status(403).json({ message: "Unauthorized course access" });
+    }
+    
+    res.status(200).json({ message: "Attendance marked successfully" });
 
-    const today = new Date().setHours(0, 0, 0, 0);
-
-    const attendanceDocs = records.map((r) => ({
-      course: courseId,
-      student: r.studentId,
-      lecturer: lecturerId,
-      status: r.status,
-      date: today,
-    }));
-
-    await Attendance.insertMany(attendanceDocs, { ordered: false });
-
-    res.status(201).json({ message: "Attendance marked successfully" });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
