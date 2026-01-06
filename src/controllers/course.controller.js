@@ -37,6 +37,68 @@ export const getMyCourses = async (req, res) => {
   }
 };
 
+export const getCourseAttendance = async (req, res) => {
+  const { courseId } = req.params;
+
+  const attendance = await Attendance.find({ course: courseId })
+    .populate("records.student", "name email")
+    .populate("markedBy", "name email");
+
+  res.status(200).json(attendance);
+};
+
+export const getMyAttendance = async (req, res) => {
+  const studentId = req.user._id;
+
+  const attendance = await Attendance.find({
+    "records.student": studentId
+  })
+    .populate("course", "title code");
+
+  const formatted = attendance.map(a => {
+    const record = a.records.find(
+      r => r.student.toString() === studentId.toString()
+    );
+
+    return {
+      course: a.course,
+      date: a.date,
+      status: record.status
+    };
+  });
+
+  res.status(200).json(formatted);
+};
+
+export const getAttendanceSummary = async (req, res) => {
+  const { courseId, studentId } = req.params;
+
+  const attendance = await Attendance.find({ course: courseId });
+
+  let present = 0;
+  let total = 0;
+
+  attendance.forEach(a => {
+    const record = a.records.find(
+      r => r.student.toString() === studentId
+    );
+
+    if (record) {
+      total++;
+      if (record.status === "present") present++;
+    }
+  });
+
+  const percentage = total === 0 ? 0 : ((present / total) * 100).toFixed(2);
+
+  res.status(200).json({
+    totalClasses: total,
+    present,
+    absent: total - present,
+    attendancePercentage: `${percentage}%`
+  });
+};
+
 export const enrollStudent = async (req, res) => {
   try {
     const { courseId, studentId } = req.body;

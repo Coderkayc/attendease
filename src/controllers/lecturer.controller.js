@@ -2,18 +2,38 @@ import Lecturer from "../models/Lecturer.js";
 
 export const createLecturer = async (req, res) => {
   try {
-    const l = await Lecturer.create(req.body);
-    res.json(l);
-  } catch (err) {
-    res.status(500).json({ msg: err.message });
+    const { userId, staffId, department } = req.body;
+
+    const lecturer = await Lecturer.create({
+      user: userId,  
+      staffId,
+      department
+    });
+
+    res.status(201).json({
+      message: "Lecturer profile created successfully",
+      lecturer
+    });
+  } catch (error) {
+    res.status(400).json({ msg: error.message });
   }
 };
 
-export const getLecturers = async (req, res) => {
+export const getLecturer = async (req, res) => {
   try {
-    const list = await Lecturer.find().sort({ name: 1 });
-    res.json(list);
-  } catch (err) {
-    res.status(500).json({ msg: err.message });
+    const { userId } = req.params;
+
+    const lecturer = await Lecturer.findOne({ user: userId })
+      .populate("user", "name email role");
+
+    if (!lecturer) {
+      return res.status(404).json({
+        message: "Lecturer profile not found"
+      });
+    }
+
+    res.status(200).json(lecturer);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 };

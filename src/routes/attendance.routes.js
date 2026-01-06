@@ -6,7 +6,9 @@ import {
   getStudentAttendance,
   getStudentReport,
   getCourseAttendanceReport,
-  exportCourseAttendanceCSV
+  exportCourseAttendanceCSV,
+  exportAttendanceCSV,
+  exportAttendancePDF
 } from "../controllers/attendance.controller.js";
 import { protect, authorize } from "../middlewares/auth.middleware.js";
 
@@ -18,5 +20,7 @@ router.get("/student/:studentId", protect, authorize("student", "admin"), getStu
 router.get("/student/:studentId/report", protect, authorize("student", "admin"), getStudentReport);
 router.get("/course/:courseId/report", protect, authorize("lecturer", "admin"), getCourseAttendanceReport);
 router.get("/course/:courseId/export", protect, authorize("lecturer", "admin"), exportCourseAttendanceCSV);
+router.get("/attendance/export/csv/:courseId", protect, authorize("lecturer", "admin"), exportAttendanceCSV);
+router.get("/attendance/export/pdf/:courseId", protect, authorize("lecturer", "admin"), exportAttendancePDF);
 
 export default router

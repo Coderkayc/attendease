@@ -2,6 +2,7 @@ import Attendance from "../models/Attendance.js";
 import Course from "../models/Course.js";
 import Lecturer from "../models/Lecturer.js";
 import { Parser } from "json2csv";
+import PDFDocument from "pdfkit";
 
 export const markAttendance = async (req, res) => {
   try {
@@ -18,16 +19,35 @@ export const markAttendance = async (req, res) => {
       return res.status(403).json({ message: "Lecturer profile not found" });
     }
 
-    if (course.lecturer.toString() !== lecturer._id.toString()) {
+    if (course.lecturer.toString() !== req.user._id.toString()) {
       return res.status(403).json({ message: "Unauthorized course access" });
-    }
-    
-    res.status(200).json({ message: "Attendance marked successfully" });
+  }
+
+   const exists = await Attendance.findOne({ course: courseId, date: today });
+      if (exists) {
+      return res.status(400).json({
+        message: "Attendance already marked for today"});
+      }
+
+       const attendance = await Attendance.create({
+      course: courseId,
+      date: today,
+      records: records.map(r => ({
+        student: r.studentId,
+        status: r.status
+      })),
+      markedBy: req.user._id
+    });
+
+    res.status(201).json({
+      message: "Attendance marked successfully",
+      attendance
+    });
 
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
-};
+}
 
 export const getCourseAttendance = async (req, res) => {
   try {
@@ -250,3 +270,87 @@ export const studentAttendanceReport = async (req, res) => {
   }
 };
 
+export const exportAttendanceCSV = async (req, res) => {
+  try {
+    const { courseId } = req.params;
+
+    const attendance = await Attendance.find({ course: courseId })
+      .populate("records.student", "name email");
+
+    let data = [];
+
+    attendance.forEach(a => {
+      a.records.forEach(r => {
+        data.push({
+          name: r.student.name,
+          email: r.student.email,
+          date: a.date,
+          status: r.status
+        });
+      });
+    });
+
+    const parser = new Parser({
+      fields: ["name", "email", "date", "status"]
+    });
+
+    const csv = parser.parse(data);
+
+    res.header("Content-Type", "text/csv");
+    res.attachment("attendance.csv");
+    res.send(csv);
+
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const exportAttendancePDF = async (req, res) => {
+  try {
+    const { courseId } = req.params;
+
+    const attendance = await Attendance.find({ course: courseId })
+      .populate("records.student", "name email")
+      .populate("course", "title code");
+
+    const doc = new PDFDocument({ margin: 30 });
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      'attachment; filename="attendance.pdf"'
+    );
+
+    doc.pipe(res);
+
+    // Title
+    doc.fontSize(18).text("Attendance Report", { align: "center" });
+    doc.moveDown();
+
+    if (attendance.length > 0) {
+      doc.fontSize(12).text(
+        `Course: ${attendance[0].course.title} (${attendance[0].course.code})`
+      );
+    }
+
+    doc.moveDown();
+
+    attendance.forEach(a => {
+      doc.fontSize(12).text(`Date: ${a.date}`);
+      doc.moveDown(0.5);
+
+      a.records.forEach(r => {
+        doc.text(
+          `${r.student.name} (${r.student.email}) - ${r.status}`
+        );
+      });
+
+      doc.moveDown();
+    });
+
+    doc.end();
+
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
