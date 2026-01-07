@@ -12,10 +12,10 @@ const userSchema = new mongoose.Schema(
       default: "student",
       lowercase: true,
     },
-  lecturerId: {
-  type: mongoose.Schema.Types.ObjectId,
-  ref: "Lecturer",
-},
+    lecturerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Lecturer",
+    },
     isActive: { type: Boolean, default: true },
   },
   { timestamps: true }
